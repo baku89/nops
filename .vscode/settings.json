@@ -1,0 +1,19 @@
+{
+	"[python]": {
+		"editor.tabSize": 2,
+		"editor.useTabStops": true,
+		"editor.formatOnSave": true,
+		"editor.formatOnPaste": true,
+		"editor.formatOnType": true
+	},
+	"files.exclude": {
+		"**/backup": true,
+		"**/.git": true,
+		"**/.svn": true,
+		"**/.hg": true,
+		"**/CVS": true,
+		"**/.DS_Store": true,
+		"**/*.pyc": true,
+		"**/*.hda*": true
+	}
+}
