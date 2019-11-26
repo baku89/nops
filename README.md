@@ -12,6 +12,8 @@ Most of these assets are intended to be an quick way to manually edit attributes
 
 Draw bezier curves in a conventional way of other standard grahic tools.
 
+![](./previews/draw_bezier.gif)
+
 ### Draw Polyline SOP
 
 Similar to Draw Bezier SOP but only can draw polylines. Instead, the SOP can draw over and modify the input polylines and also allows multiple vertices per point. (This is especially buggy)
@@ -20,9 +22,13 @@ Similar to Draw Bezier SOP but only can draw polylines. Instead, the SOP can dra
 
 Edit transformation of series of packed geometries at once.
 
+![](./previews/transform_packed.gif)
+
 ### Attrib Manual SOP
 
 Manually assigns attribute values to specific elements.
+
+![](./previews/attrib_manual.gif)
 
 ### Attrib Normalize SOP
 
@@ -31,6 +37,8 @@ Normalizes an attribute of input between specific range automatically.
 ### Export AE Keyframes OBJ
 
 Copy the keyframe data of transformation of OBJ node or camera so that user can paste it to After Effects.
+
+![](./previews/export_ae_keyframes.gif)
 
 ## Quick Installation
 
