@@ -1,0 +1,14 @@
+Operator:     baku_attribnormalize
+Label:        Attribute Normalize
+Path:         oplib:/Sop/baku_attribnormalize?Sop/baku_attribnormalize
+Icon:         opdef:/Sop/baku_attribnormalize?IconImage
+Table:        Sop
+License:      
+Extra:        
+User:         
+Inputs:       1 to 1
+Subnet:       true
+Python:       false
+Empty:        false
+Modified:     Thu Mar  5 22:43:16 2020
+

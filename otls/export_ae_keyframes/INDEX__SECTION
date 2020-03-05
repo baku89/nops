@@ -1,0 +1,14 @@
+Operator:     com.baku89::export_ae_keyframes::0
+Label:        Export AE Keyframes
+Path:         oplib:/com.baku89::Object/export_ae_keyframes::0?com.baku89::Object/export_ae_keyframes::0
+Icon:         opdef:/com.baku89::Object/export_ae_keyframes::0?IconImage
+Table:        Object
+License:      
+Extra:        subtype=geo 
+User:         
+Inputs:       0 to 1
+Subnet:       false
+Python:       false
+Empty:        false
+Modified:     Thu Mar  5 22:47:24 2020
+

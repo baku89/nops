@@ -1,0 +1,14 @@
+Operator:     baku_shear
+Label:        Shear
+Path:         oplib:/Sop/baku_shear?Sop/baku_shear
+Icon:         opdef:/Sop/baku_shear?IconImage
+Table:        Sop
+License:      
+Extra:        guide=./GUIDE 
+User:         
+Inputs:       1 to 1
+Subnet:       true
+Python:       false
+Empty:        false
+Modified:     Thu Mar  5 22:43:42 2020
+

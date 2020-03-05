@@ -1,0 +1,5 @@
+def clearAll():
+        node = hou.pwd()
+        node.parm('mod').revertToDefaults()
+        node.parm('add').revertToDefaults()
+        node.parm('selection').revertToDefaults()

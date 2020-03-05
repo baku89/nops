@@ -1,0 +1,6 @@
+node = kwargs['node']
+
+node.parm('instanceobjects').set(3)
+
+for i in xrange(1, 4):
+    node.parm('instancesource%d' % i).set(i)

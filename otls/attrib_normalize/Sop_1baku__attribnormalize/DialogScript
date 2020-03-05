@@ -1,0 +1,59 @@
+# Dialog script for baku_attribnormalize automatically generated
+
+{
+    name	baku_attribnormalize
+    script	baku_attribnormalize
+    label	"Attribute Normalize"
+
+    help {
+	""
+    }
+
+    inputlabel	1	"Sub-Network Input #1"
+    inputlabel	2	"Sub-Network Input #2"
+    inputlabel	3	"Sub-Network Input #3"
+    inputlabel	4	"Sub-Network Input #4"
+
+    parm {
+        name    "name"
+        label   "Label"
+        type    string
+        default { "" }
+    }
+    parm {
+        name    "class"
+        label   "Class"
+        type    ordinal
+        default { "primitive" }
+        menu {
+            "detail"    "Detail"
+            "primitive" "Primitive"
+            "point"     "Point"
+            "vertex"    "Vertex"
+        }
+        parmtag { "autoscope" "0000000000000000" }
+    }
+    parm {
+        name    "size"
+        label   "Size"
+        type    integer
+        default { "1" }
+        range   { 1 4 }
+    }
+    parm {
+        name    "out_min"
+        label   "Min Value"
+        type    vector4
+        size    4
+        default { "0" "0" "0" "0" }
+        range   { -1 1 }
+    }
+    parm {
+        name    "out_max"
+        label   "Max Value"
+        type    vector4
+        size    4
+        default { "1" "1" "1" "1" }
+        range   { -1 1 }
+    }
+}

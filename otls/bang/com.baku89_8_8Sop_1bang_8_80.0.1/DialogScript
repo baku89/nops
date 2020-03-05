@@ -1,0 +1,92 @@
+# Dialog script for com.baku89::bang::0.0.1 automatically generated
+
+{
+    name	com.baku89::bang::0.0.1
+    script	com.baku89::bang::0.0.1
+    label	Bang
+
+    help {
+	""
+    }
+
+    inputlabel	1	Source
+    inputlabel	2	"Sub-Network Input #2"
+    inputlabel	3	"Sub-Network Input #3"
+    inputlabel	4	"Sub-Network Input #4"
+
+    parm {
+        name    "create_local_variables"
+        label   "Create Local Variables"
+        type    toggle
+        default { "1" }
+    }
+    multiparm {
+        name    "tracks"
+        label    "Tracks"
+        default 1
+        parmtag { "multistartoffset" "1" }
+
+        parm {
+            name    "bang#"
+            label   "Bang"
+            type    button
+            joinnext
+            default { "0" }
+            export  all
+            parmtag { "script_callback" "hou.pwd().hm().bang(kwargs)" }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "name#"
+            label   "Name"
+            type    string
+            joinnext
+            default { "bang#" }
+        }
+        parm {
+            name    "track#"
+            label   "Track#"
+            type    integer
+            default { "0" }
+            range   { 0! 1! }
+            parmtag { "autoscope" "1000000000000000" }
+            parmtag { "autoselect" "1000000000000000" }
+        }
+        groupcollapsible {
+            name    "falloff#"
+            label   "Time Falloff"
+
+            parm {
+                name    "falloff_duration#"
+                label   "Falloff Duration"
+                type    vector2
+                size    2
+                default { "0" "1" }
+                range   { 0! 10 }
+            }
+            parm {
+                name    "falloff_in#"
+                label   "Falloff In"
+                type    ramp_flt
+                default { "2" }
+                hidewhen "{ falloff_duration#x == 0 }"
+                range   { 1! 10 }
+                parmtag { "rampbasisdefault" "bspline" }
+                parmtag { "rampshowcontrolsdefault" "0" }
+            }
+            parm {
+                name    "falloff_out#"
+                label   "Falloff Out"
+                type    ramp_flt
+                default { "2" }
+                hidewhen "{ falloff_duration#y == 0 }"
+                range   { 1! 10 }
+                parmtag { "autoscope" "0000000000000000" }
+                parmtag { "rampbasisdefault" "bspline" }
+                parmtag { "rampshowcontrolsdefault" "0" }
+            }
+        }
+
+    }
+
+}

@@ -1,0 +1,16 @@
+def clamp01(x):
+    return max(0, min(1, x))
+
+
+def bang(kwargs):
+    node = kwargs['node']
+    index = kwargs['script_multiparm_index']
+    
+    frame = hou.frame()
+    
+    bangKey = hou.Keyframe()
+    bangKey.setFrame(frame)
+    bangKey.setValue(1)
+    
+    parm = node.parm('track%s' % index)
+    parm.setKeyframe(bangKey)

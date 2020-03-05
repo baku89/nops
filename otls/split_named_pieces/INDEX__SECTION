@@ -1,0 +1,15 @@
+Operator:     com.baku89::split_named_pieces::0
+Label:        Split Named Pieces
+Path:         oplib:/com.baku89::Sop/split_named_pieces::0?com.baku89::Sop/split_named_pieces::0
+Icon:         opdef:/com.baku89::Sop/split_named_pieces::0?IconImage
+Table:        Sop
+License:      
+Extra:        guide=./GUIDE 
+User:         
+Inputs:       1 to 1
+Outputs:      5
+Subnet:       true
+Python:       false
+Empty:        false
+Modified:     Thu Mar  5 22:44:17 2020
+

@@ -1,0 +1,391 @@
+# Dialog script for com.baku89::transform_packed::0.0.1 automatically generated
+
+{
+    name	com.baku89::transform_packed::0.0.1
+    script	com.baku89::transform_packed::0.0.1
+    label	"Transform Packed"
+
+    help {
+	""
+    }
+
+    inputlabel	1	Source
+    inputlabel	2	"Instance Reference #2"
+    parmtag { inputisref2 1 }
+    inputlabel	3	"Instance Reference #3"
+    parmtag { inputisref3 1 }
+    inputlabel	4	"Instance Reference #4"
+    parmtag { inputisref4 1 }
+    inputlabel	5	"Reference Object"
+    parmtag { inputisref5 1 }
+    inputlabel	6	"Sub-Network Input #6"
+    inputlabel	7	"Sub-Network Input #7"
+    inputlabel	8	"Sub-Network Input #8"
+    inputlabel	9	"Sub-Network Input #9"
+    inputlabel	10	"Sub-Network Input #10"
+    inputlabel	11	"Sub-Network Input #11"
+    inputlabel	12	"Sub-Network Input #12"
+    inputlabel	13	"Sub-Network Input #13"
+    inputlabel	14	"Sub-Network Input #14"
+    inputlabel	15	"Sub-Network Input #15"
+    inputlabel	16	"Sub-Network Input #16"
+    inputlabel	17	"Sub-Network Input #17"
+    inputlabel	18	"Sub-Network Input #18"
+    inputlabel	19	"Sub-Network Input #19"
+    inputlabel	20	"Sub-Network Input #20"
+    inputlabel	21	"Sub-Network Input #21"
+    inputlabel	22	"Sub-Network Input #22"
+    inputlabel	23	"Sub-Network Input #23"
+    inputlabel	24	"Sub-Network Input #24"
+    inputlabel	25	"Sub-Network Input #25"
+    inputlabel	26	"Sub-Network Input #26"
+    inputlabel	27	"Sub-Network Input #27"
+    inputlabel	28	"Sub-Network Input #28"
+    inputlabel	29	"Sub-Network Input #29"
+    inputlabel	30	"Sub-Network Input #30"
+    inputlabel	31	"Sub-Network Input #31"
+    inputlabel	32	"Sub-Network Input #32"
+    inputlabel	33	"Sub-Network Input #33"
+    inputlabel	34	"Sub-Network Input #34"
+    inputlabel	35	"Sub-Network Input #35"
+    inputlabel	36	"Sub-Network Input #36"
+    inputlabel	37	"Sub-Network Input #37"
+    inputlabel	38	"Sub-Network Input #38"
+    inputlabel	39	"Sub-Network Input #39"
+    inputlabel	40	"Sub-Network Input #40"
+    inputlabel	41	"Sub-Network Input #41"
+    inputlabel	42	"Sub-Network Input #42"
+    inputlabel	43	"Sub-Network Input #43"
+    inputlabel	44	"Sub-Network Input #44"
+    inputlabel	45	"Sub-Network Input #45"
+    inputlabel	46	"Sub-Network Input #46"
+    inputlabel	47	"Sub-Network Input #47"
+    inputlabel	48	"Sub-Network Input #48"
+    inputlabel	49	"Sub-Network Input #49"
+    inputlabel	50	"Sub-Network Input #50"
+    inputlabel	51	"Sub-Network Input #51"
+    inputlabel	52	"Sub-Network Input #52"
+    inputlabel	53	"Sub-Network Input #53"
+    inputlabel	54	"Sub-Network Input #54"
+    inputlabel	55	"Sub-Network Input #55"
+    inputlabel	56	"Sub-Network Input #56"
+    inputlabel	57	"Sub-Network Input #57"
+    inputlabel	58	"Sub-Network Input #58"
+    inputlabel	59	"Sub-Network Input #59"
+    inputlabel	60	"Sub-Network Input #60"
+    inputlabel	61	"Sub-Network Input #61"
+    inputlabel	62	"Sub-Network Input #62"
+    inputlabel	63	"Sub-Network Input #63"
+    inputlabel	64	"Sub-Network Input #64"
+    inputlabel	65	"Sub-Network Input #65"
+    inputlabel	66	"Sub-Network Input #66"
+    inputlabel	67	"Sub-Network Input #67"
+    inputlabel	68	"Sub-Network Input #68"
+    inputlabel	69	"Sub-Network Input #69"
+    inputlabel	70	"Sub-Network Input #70"
+    inputlabel	71	"Sub-Network Input #71"
+    inputlabel	72	"Sub-Network Input #72"
+    inputlabel	73	"Sub-Network Input #73"
+    inputlabel	74	"Sub-Network Input #74"
+    inputlabel	75	"Sub-Network Input #75"
+    inputlabel	76	"Sub-Network Input #76"
+    inputlabel	77	"Sub-Network Input #77"
+    inputlabel	78	"Sub-Network Input #78"
+    inputlabel	79	"Sub-Network Input #79"
+    inputlabel	80	"Sub-Network Input #80"
+    inputlabel	81	"Sub-Network Input #81"
+    inputlabel	82	"Sub-Network Input #82"
+    inputlabel	83	"Sub-Network Input #83"
+    inputlabel	84	"Sub-Network Input #84"
+    inputlabel	85	"Sub-Network Input #85"
+    inputlabel	86	"Sub-Network Input #86"
+    inputlabel	87	"Sub-Network Input #87"
+    inputlabel	88	"Sub-Network Input #88"
+    inputlabel	89	"Sub-Network Input #89"
+    inputlabel	90	"Sub-Network Input #90"
+    inputlabel	91	"Sub-Network Input #91"
+    inputlabel	92	"Sub-Network Input #92"
+    inputlabel	93	"Sub-Network Input #93"
+    inputlabel	94	"Sub-Network Input #94"
+    inputlabel	95	"Sub-Network Input #95"
+    inputlabel	96	"Sub-Network Input #96"
+    inputlabel	97	"Sub-Network Input #97"
+    inputlabel	98	"Sub-Network Input #98"
+    inputlabel	99	"Sub-Network Input #99"
+    inputlabel	100	"Sub-Network Input #100"
+
+    parm {
+        name    "viewerstate_enabled"
+        label   "viewerstate_enabled"
+        type    toggle
+        invisible
+        default { "0" }
+    }
+    parm {
+        name    "xform_mode"
+        label   "Transform Mode"
+        type    ordinal
+        invisible
+        default { "0" }
+        menu {
+            "whole"         "Whole"
+            "individual"    "Individual"
+            "translate"     "Translate Only"
+        }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "start_edit"
+        label   "Start Edit"
+        type    button
+        joinnext
+        default { "0" }
+        parmtag { "script_callback" "import baku_modules; baku_modules.enterNodeState()" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "clear_all"
+        label   "Clear All"
+        type    button
+        default { "0" }
+        parmtag { "script_callback" "hou.pwd().hm().clearAll()" }
+        parmtag { "script_callback_language" "python" }
+    }
+    groupsimple {
+        name    "edit"
+        label   "Edit"
+        disablewhen "{ viewerstate_enabled == 0 }"
+
+        parm {
+            name    "selection"
+            label   "Selection"
+            type    string
+            default { "" }
+            parmtag { "script_callback" "" }
+        }
+        parm {
+            name    "t"
+            label   "Translate"
+            type    vector
+            joinnext
+            size    3
+            default { "0" "0" "0" }
+            range   { -1 1 }
+        }
+        parm {
+            name    "reset_t"
+            label   "Reset"
+            type    button
+            default { "0" }
+            parmtag { "script_callback" "import toolutils; toolutils.sceneViewer().runStateCommand('reset_translate')" }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "r"
+            label   "Rotate"
+            type    vector
+            joinnext
+            size    3
+            default { "0" "0" "0" }
+            range   { -1 1 }
+        }
+        parm {
+            name    "reset_r"
+            label   "Reset"
+            type    button
+            default { "0" }
+            parmtag { "script_callback" "import toolutils; toolutils.sceneViewer().runStateCommand('reset_rotate')" }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "s"
+            label   "Scale"
+            type    vector
+            joinnext
+            size    3
+            default { "1" "1" "1" }
+            range   { -1 1 }
+        }
+        parm {
+            name    "reset_s"
+            label   "Reset"
+            type    button
+            default { "0" }
+            parmtag { "script_callback" "import toolutils; toolutils.sceneViewer().runStateCommand('reset_scale')" }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "instanceindex"
+            label   "Instance Index"
+            type    integer
+            joinnext
+            default { "0" }
+            range   { -1 10 }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "apply_instanceindex"
+            label   "Apply"
+            type    button
+            default { "0" }
+            parmtag { "script_callback" "import toolutils; toolutils.sceneViewer().runStateCommand('apply_instanceindex')" }
+            parmtag { "script_callback_language" "python" }
+        }
+    }
+
+    groupcollapsible {
+        name    "mod_wrapper"
+        label   "Modify"
+
+        multiswitcher {
+            name    "mod"
+            label    "Modify"
+
+            parm {
+                name    "mod#_delete"
+                label   "Delete"
+                type    toggle
+                default { "0" }
+            }
+            parm {
+                name    "mod#_prim"
+                label   "Primitive Index"
+                type    integer
+                default { "0" }
+                range   { 0! 100 }
+            }
+            parm {
+                name    "mod#_instanceindex"
+                label   "Instance Index"
+                type    integer
+                default { "-1" }
+                disablewhen "{ mod#_delete == 1 }"
+                range   { -1! 2 }
+            }
+            parm {
+                name    "mod#_trans"
+                label   "Translate"
+                type    vector
+                size    3
+                default { "0" "0" "0" }
+                disablewhen "{ mod#_delete == 1 }"
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+            parm {
+                name    "mod#_rot"
+                label   "Rotate"
+                type    vector
+                size    3
+                default { "0" "0" "0" }
+                disablewhen "{ mod#_delete == 1 }"
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+            parm {
+                name    "mod#_scale"
+                label   "Scale"
+                type    vector
+                size    3
+                default { "1" "1" "1" }
+                disablewhen "{ mod#_delete == 1 }"
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+        }
+
+    }
+
+    groupcollapsible {
+        name    "add_wrapper"
+        label   "Add"
+
+        multiswitcher {
+            name    "add"
+            label    "Add"
+
+            parm {
+                name    "add#_instanceindex"
+                label   "Instance Index"
+                type    integer
+                default { "0" }
+                range   { 0! 2 }
+            }
+            parm {
+                name    "add#_trans"
+                label   "Translate"
+                type    vector
+                size    3
+                default { "0" "0" "0" }
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+            parm {
+                name    "add#_rot"
+                label   "Rotate"
+                type    vector
+                size    3
+                default { "0" "0" "0" }
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+            parm {
+                name    "add#_scale"
+                label   "Scale"
+                type    vector
+                size    3
+                default { "1" "1" "1" }
+                range   { -1 1 }
+                parmtag { "script_callback" "hou.pwd().hm().updatePivotCache()" }
+                parmtag { "script_callback_language" "python" }
+            }
+        }
+
+    }
+
+    groupcollapsible {
+        name    "instanceobjects_wrapper"
+        label   "Instance Objects"
+
+        multiparm {
+            name    "instanceobjects"
+            label    "Instance Objects"
+            parmtag { "autoscope" "0000000000000000" }
+            parmtag { "autoselect" "0000000000000000" }
+            parmtag { "multistartoffset" "1" }
+
+            parm {
+                name    "instancesource#"
+                label   "Source"
+                type    ordinal
+                nolabel
+                joinnext
+                default { "second" }
+                menu {
+                    "custom"    "Custom"
+                    "second"    "Use Second Input"
+                    "third"     "Use Third Input"
+                    "fourth"    "Use Fourth Input"
+                }
+            }
+            parm {
+                name    "instancepath#"
+                label   "Path"
+                type    oppath
+                default { "" }
+                hidewhen "{ instancesource# != custom }"
+                parmtag { "opfilter" "!!SOP!!" }
+                parmtag { "oprelative" "." }
+                parmtag { "script_callback" "" }
+                parmtag { "script_callback_language" "python" }
+            }
+        }
+
+    }
+
+}

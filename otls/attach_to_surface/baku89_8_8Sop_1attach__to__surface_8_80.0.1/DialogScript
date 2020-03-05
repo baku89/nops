@@ -1,0 +1,81 @@
+# Dialog script for baku89::attach_to_surface::0.0.1 automatically generated
+
+{
+    name	baku89::attach_to_surface::0.0.1
+    script	baku89::attach_to_surface::0.0.1
+    label	"Attach to Surface"
+
+    help {
+	""
+    }
+
+    inputlabel	1	Source
+    inputlabel	2	"Geometry to Attach"
+    parmtag { inputisref2 1 }
+    inputlabel	3	"Sub-Network Input #3"
+    inputlabel	4	"Sub-Network Input #4"
+
+    parm {
+        name    "hovering_prim"
+        label   "Hovering Primitives"
+        type    string
+        invisible
+        default { "!*" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "grid"
+        label   "Grid"
+        type    uv
+        invisible
+        size    2
+        default { "0" "0" }
+        range   { 0 1 }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "keepgeo"
+        label   "Keep Input Geometry"
+        type    toggle
+        default { "1" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "usenormal"
+        label   "Align Surface Normal"
+        type    toggle
+        default { "1" }
+        parmtag { "script_callback_language" "python" }
+    }
+    multiparm {
+        name    "attachments"
+        label    "Numbers of Attachments"
+
+        parm {
+            name    "pattern#"
+            label   "Pattern"
+            type    string
+            joinnext
+            default { "" }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "primuv#"
+            label   "Primitive UV"
+            type    uv
+            size    2
+            default { "0" "0" }
+            range   { 0 1 }
+            parmtag { "script_callback_language" "python" }
+        }
+        parm {
+            name    "scale#"
+            label   "Scale"
+            type    float
+            default { "1" }
+            range   { 0 10 }
+            parmtag { "script_callback_language" "python" }
+        }
+    }
+
+}

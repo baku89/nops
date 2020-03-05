@@ -1,0 +1,90 @@
+# Dialog script for com.baku89::split_named_pieces::0 automatically generated
+
+{
+    name	com.baku89::split_named_pieces::0
+    script	com.baku89::split_named_pieces::0
+    label	"Split Named Pieces"
+
+    help {
+	""
+    }
+
+    inputlabel	1	Source
+    inputlabel	2	"Sub-Network Input #2"
+    inputlabel	3	"Sub-Network Input #3"
+    inputlabel	4	"Sub-Network Input #4"
+    outputlabel	1	"Piece 1"
+    outputlabel	2	"Piece 2"
+    outputlabel	3	"Piece 3"
+    outputlabel	4	"Piece 4"
+    outputlabel	5	Rest
+
+    parm {
+        name    "create_output_nulls"
+        label   "Create Output Nulls"
+        type    button
+        default { "0" }
+        parmtag { "script_callback" "hou.pwd().hm().createOutputNulls(kwargs)" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "attrib"
+        label   "Piece Attribute"
+        type    string
+        default { "name" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "label_size"
+        label   "Label Size"
+        type    float
+        default { "1" }
+        range   { 0 10 }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "pattern1"
+        label   "Piece Name Pattern 1"
+        type    string
+        default { "" }
+    }
+    parm {
+        name    "pattern2"
+        label   "Piece Name Pattern 2"
+        type    string
+        default { "" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "pattern3"
+        label   "Piece Name Pattern 3"
+        type    string
+        default { "" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "pattern4"
+        label   "Piece Name Pattern 4"
+        type    string
+        default { "" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "dosinglepass"
+        label   "dosinglepass"
+        type    toggle
+        nolabel
+        joinnext
+        default { "0" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "singlepass"
+        label   "Single Pass"
+        type    integer
+        default { "1" }
+        disablewhen "{ dosinglepass == 0 }"
+        range   { 0! 4! }
+        parmtag { "script_callback_language" "python" }
+    }
+}
