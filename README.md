@@ -2,9 +2,9 @@
 
 Digital Assets created by [Baku Hashimoto](https://baku89.com) to summplement the lack of 'destructive editing' features of Houdini.
 
-Most of these assets are intended to be an quick way to manually edit attributes, splines, a group of packed geometries in a non-procedural manner.
+Most of these assets are intended to be an quick way to manually edit attributes, splines, a group of packed geometries in a destructive manner. All of HDA works abovee H18.
 
-**Note:** I strongly recommend not to use these for any production purpose. These assets are still working-in-progress and some bugs and updates might break your projects. Please use them only for evaluation.
+**Note:** I strongly recommend not to use these for any production purpose. These assets are still working-in-progress and some bugs and incompatible updates might break your projects. Please use them only for evaluation.
 
 ## Nodes
 
@@ -14,9 +14,11 @@ Draw bezier curves in a conventional way of other standard grahic tools.
 
 ![](./previews/draw_bezier.gif)
 
+<!--
 ### Draw Polyline SOP
 
 Similar to Draw Bezier SOP but only can draw polylines. Instead, the SOP can draw over and modify the input polylines and also allows multiple vertices per point. (This is especially buggy)
+-->
 
 ### Transform Packed SOP
 
@@ -24,13 +26,13 @@ Edit transformation of series of packed geometries at once.
 
 ![](./previews/transform_packed.gif)
 
-### Attrib Manual SOP
+### Attribute Manual SOP
 
 Manually assigns attribute values to specific elements.
 
 ![](./previews/attrib_manual.gif)
 
-### Attrib Normalize SOP
+### Attribute Normalize SOP
 
 Normalizes an attribute of input between specific range automatically.
 
@@ -39,6 +41,13 @@ Normalizes an attribute of input between specific range automatically.
 Copy the keyframe data of transformation of OBJ node or camera so that user can paste it to After Effects.
 
 ![](./previews/export_ae_keyframes.gif)
+
+### Bang
+
+Creates a detail attribute which turns 1 on every frame you press the Bang button. It also has attack/decay options and therefore you can quickly make pulse or heartbeart animation by hand.
+
+![](./previews/bang.gif)
+
 
 ## Quick Installation
 
