@@ -2,7 +2,7 @@
 
 Digital Assets created by [Baku Hashimoto](https://baku89.com) to summplement the lack of 'destructive editing' features of Houdini.
 
-Most of these assets are intended to be an quick way to manually edit attributes, splines, a group of packed geometries in a destructive manner. All of HDA works abovee H18.
+Most of these assets are intended to be an quick way to manually edit attributes, splines, a group of packed geometries in a destructive manner. All of HDA works above H18.
 
 **Note:** I strongly recommend not to use these for any production purpose. These assets are still working-in-progress and some bugs and incompatible updates might break your projects. Please use them only for evaluation.
 
@@ -47,7 +47,6 @@ Copy the keyframe data of transformation of OBJ node or camera so that user can 
 Creates a detail attribute which turns 1 on every frame you press the Bang button. It also has attack/decay options and therefore you can quickly make pulse or heartbeart animation by hand.
 
 ![](./previews/bang.gif)
-
 
 ## Quick Installation
 
