@@ -1,6 +1,7 @@
 import hou
 import viewerstate.utils as su
 import stateutils
+import toolutils
 from os import path
 
 EPSILON = 0.000001
@@ -324,13 +325,26 @@ class Cursor:
         self.snapped_prim = None
 
     def computeDrawableXform(self, local_xform):
+
         parent_xform = self.objnode.worldTransform()
-        return parent_xform.inverted() * local_xform * parent_xform
+
+        if self.scene_viewer.isWorldSpaceLocal():
+            return local_xform
+        else:
+            return parent_xform.inverted() * local_xform * parent_xform
 
     def setReferenceGeometry(self, geo):
         self.reference_geo = geo
 
     def update(self, kwargs):
+
+        # Memo: how snappingRay is represented in various situation
+        #             | Show All | Solo 
+        # ------------+----------+------
+        # Not snapped |  Local   | Local
+        # Snapped     |  World   | Local
+
+        # All of below process should be represented in local coordinate.
 
         # Reset settings
         self.__resetSettings()
@@ -355,13 +369,13 @@ class Cursor:
         refplane_xform = getReferencePlaneXform(
             self.scene_viewer) * parent_xform_inv
 
-        if ray_snapped:
-            # Convert to object-level local coordinate
+        if ray_snapped and not self.scene_viewer.isWorldSpaceLocal():
+            # Convert to local coordinate
             ray_origin *= parent_xform_inv
             ray_direction = ray_direction.multiplyAsDir(parent_xform_inv)
 
         # Update Mouse Screen
-        ray_origin_world = ray_origin * parent_xform
+        ray_origin_world = ray_origin # * parent_xform
         mouse_screen = self.scene_viewer.curViewport().mapToScreen(ray_origin_world)
         self.mouse_screen = hou.Vector3(mouse_screen[0], mouse_screen[1], 0)
 
@@ -399,45 +413,51 @@ class Cursor:
         # Project to plane facing to viewport camera,
         # whose ray_origin is pinned to the current anchor points
         if not self.snapped and plane_origin:
-            self.position = hou.hmath.intersectPlane(
+            intersection = hou.hmath.intersectPlane(
                 plane_origin,                                       # plane_point
                 plane_normal if plane_normal else ray_direction,    # plane_normal
                 ray_origin,                                         # line_origin
                 ray_direction)                                      # line_dir
 
-            self.snapped = 'viewport'
+            if ray_direction.dot(intersection - ray_origin) > 0:
+                
+                self.position = intersection
+                self.snapped = 'viewport'
 
-            if ui_event.device().isShiftKey():
-                # Snap to axis
-                delta = self.position - plane_origin
+                if ui_event.device().isShiftKey():
+                    # Snap to axis
+                    delta = self.position - plane_origin
 
-                x, y, z = [abs(v) for v in delta]
+                    x, y, z = [abs(v) for v in delta]
 
-                if x > y and x > z:
-                    delta = hou.Vector3(delta[0], 0, 0)
-                elif y > z:
-                    delta = hou.Vector3(0, delta[1], 0)
-                else:
-                    delta = hou.Vector3(0, 0, delta[2])
+                    if x > y and x > z:
+                        delta = hou.Vector3(delta[0], 0, 0)
+                    elif y > z:
+                        delta = hou.Vector3(0, delta[1], 0)
+                    else:
+                        delta = hou.Vector3(0, 0, delta[2])
 
-                self.position = plane_origin + delta
-                self.projected_position = plane_origin
-                self.snapped = 'axis'
+                    self.position = plane_origin + delta
+                    self.projected_position = plane_origin
+                    self.snapped = 'axis'
 
         # Project to reference plane
         if not self.snapped:
             plane_origin = hou.Vector3() * refplane_xform
             plane_normal = AXIS_Z * refplane_xform.inverted().transposed()
 
-            self.position = hou.hmath.intersectPlane(
+            intersection = hou.hmath.intersectPlane(
                 plane_origin,
                 plane_normal,
                 ray_origin,     # line_origin
                 ray_direction)  # line_dir
 
-            self.projected_position = self.position
+            if ray_direction.dot(intersection - ray_origin) > 0:
 
-            self.snapped = 'plane'
+                self.position = intersection
+                self.projected_position = intersection
+
+                self.snapped = 'plane'
 
         if self.projected_position == None:
             self.projected_position = self.position * refplane_xform.inverted()

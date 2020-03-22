@@ -1,2 +1,0 @@
-import toolutils
-toolutils.sceneViewer().runStateCommand('update_input')
