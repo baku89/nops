@@ -1,0 +1,1284 @@
+import hou # pylint: disable=import-error
+import stateutils # pylint: disable=import-error
+
+import baku_modules as bm # pylint: disable=import-error
+reload(bm)
+
+EPSILON = bm.EPSILON
+
+hm = kwargs['type'].hdaModule()
+
+EMPTY = hm.EMPTY
+ZERO_VECTOR = hm.ZERO_VECTOR
+
+PointType = hm.PointType
+HandleType = hm.HandleType
+
+Curves = hm.Curves
+
+class ToolType:
+        PEN, SELECT, CUT = (0, 1, 2)
+
+class State(object):
+        WATCH_PARMS = ('selection', 'tx', 'ty', 'tz',
+                'rx', 'ry', 'rz', 'sx', 'sy', 'sz')
+
+        def __init__(self, state_name, scene_viewer):
+
+                self.state_name = state_name
+                self.scene_viewer = scene_viewer
+                
+                self.guide_color = None
+                self.break_handle = False
+
+                self.mouse_screen = hou.Vector3()
+                self.cursor_text = ''
+                self.cursor_visibility = False
+
+                self.visible_handle = None
+
+                self.initialized = False
+
+        def initialize(self, kwargs):
+                if self.initialized:
+                        return
+                self.initialized = True
+
+                self.node = kwargs['node']
+                self.curves = Curves(self.node)
+
+                key_context = 'h.pane.gview.state.sop.' + self.node.type().name().split('::')[1]
+                self.pen_hotkey = key_context + '.pen'
+                self.select_hotkey = key_context + '.select'
+                self.cut_hotkey = key_context + '.cut'
+
+                # bm.Cursor Guide
+                sphere_verb = hou.sopNodeTypeCategory().nodeVerbs()['sphere']
+                geo = hou.Geometry()
+                sphere_verb.setParms({
+                        'type': 1,
+                        'freq': 2,
+                        'rad': (.25, .25, .25)
+                })
+                sphere_verb.execute(geo, [])
+
+                self.guide_cursor = hou.GeometryDrawable(
+                        self.scene_viewer,
+                        geo_type = hou.drawableGeometryType.Face,
+                        name = 'cursor',
+                        geometry = geo,
+                        params = {
+                                'style': hou.drawableGeometryFaceStyle.Plain,
+                                'highlight_mode': hou.drawableHighlightMode.Matte,
+                        })
+                self.guide_cursor.show(True)
+                
+                # bm.Cursor Line Guide
+                geo = hou.Geometry()
+                line_verb = hou.sopNodeTypeCategory().nodeVerbs()['line']
+                geo = hou.Geometry()
+                line_verb.execute(geo, [])
+
+                self.guide_line_geo = geo
+                
+                self.guide_line = hou.GeometryDrawable(
+                        self.scene_viewer,
+                        geo_type = hou.drawableGeometryType.Line,
+                        name = 'line',
+                        geometry = geo,
+                        params = {                              
+                                'style': hou.drawableGeometryLineStyle.Dash2,
+                                'highlight_mode': hou.drawableHighlightMode.Matte,
+                                'line_width': 1
+                        })
+                self.guide_line.show(True)
+
+                # bm.Cursor Text Guide
+                self.guide_text = hou.TextDrawable(self.scene_viewer, 'action_text')
+                self.guide_text.show(True)
+
+                # Extend Guide
+                geo = hou.Geometry()
+                poly = geo.createPolygon(False)
+                for i in xrange(20):
+                                point = geo.createPoint()
+                                poly.addVertex(point)
+
+                self.guide_extend_geo = geo
+
+                self.guide_extend = hou.GeometryDrawable(
+                        self.scene_viewer,
+                        geo_type = hou.drawableGeometryType.Line,
+                        name = 'line',
+                        geometry = geo,
+                        params = {
+                                'style': hou.drawableGeometryLineStyle.Plain,
+                                'highlight_mode': hou.drawableHighlightMode.Matte,
+                                'line_width': 1
+                        })
+                self.guide_extend.show(True)
+
+                # Init State
+                self.node.parm('selection').set('')
+                self.setState('selected_points', [])
+                self.setState('selected_mode', None)
+                self._abortAction()
+
+                kwargs['state_parms']['tool']['value'] = self.state('last_tool') or 0
+                self._onChangeTool(kwargs)
+
+                # Init pivot cahce
+                self._updatePivotCache()
+
+                self.cursor = bm.Cursor({
+                        'node': self.node,
+                        'scene_viewer': self.scene_viewer,
+                        "points_geo":  self.node.node('./INTERSECTOR_POINTS').geometry(),
+                        "edge_geo":  self.node.node('./INTERSECTOR_EDGE').geometry(),
+                        'reference_geo': self.node.inputs()[1].geometry() if len(self.node.inputs()) >= 2 else None
+                })
+
+        def state(self, key):
+                return self.node.cachedUserData(key)
+
+        def setState(self, key, value):
+                self.node.setCachedUserData(key, value)
+        
+        def showGuides(self, flag):
+                self.guide_text.show(flag)
+                self.guide_line.show(flag)
+                self.guide_cursor.show(flag)
+                self.guide_extend.show(flag)
+
+        def _onChangeTool(self, kwargs):
+                state_parms = kwargs['state_parms']
+                tool = state_parms['tool']['value']
+
+                state_parms['draw_viewport_plane']['visible'] = tool == ToolType.PEN
+                state_parms['select_unit']['visible'] = tool == ToolType.SELECT
+
+                if tool == ToolType.PEN:
+                        self.scene_viewer.triggerStateSelector(hou.triggerSelectorAction.Stop, 'select_points')
+
+                        # switch to extend mode when either end anchors of curve is selected
+                        if self.state('selected_mode') == 'anchor':
+                                points = self.state('selected_points')
+                                if len(points) == 1:
+                                        anchor = points[0]
+                                        point_type = self.curves.pointType(anchor)
+
+                                        if PointType.isEnd(point_type):
+                                                with hou.undos.group('Extend curve'):
+                                                        self.node.parm('current_anchor').set(anchor)
+                                                        self.node.parm('draw_backward').set(point_type == PointType.ANCHOR_FIRST)
+
+                        self._updateSelection(kwargs, '')
+
+                elif tool == ToolType.SELECT:
+                        selection = self.node.parm('selection').eval()
+                        self._updateSelection(kwargs, selection)
+                
+                if tool != ToolType.PEN:
+                        self._abortAction()
+                
+                self.setState('last_tool', tool)
+                
+                self.scene_viewer.curViewport().draw()
+
+        def onCommand(self, kwargs):
+                name = kwargs['command']
+
+                if name == 'abort_action':
+                        self._abortAction()
+                
+                elif name == 'update_pivot_cache':
+                        self._updatePivotCache()
+                
+                elif name in ('reset_translate', 'reset_rotate', 'reset_scale'):
+
+                        if name == 'reset_translate':
+                                bm.setNodeTransform(self.node, translate=hou.Vector3())
+
+                        elif name == 'reset_rotate':
+                                bm.setNodeTransform(self.node, rotate=hou.Vector3())
+
+                        elif name == 'reset_scale':
+                                bm.setNodeTransform(self.node, scale=hou.Vector3(1, 1, 1))
+
+                        self._updatePivotCache()
+
+
+        def _abortAction(self):
+                self.node.parm('current_action').set('')
+                self.node.parm('current_anchor').set(EMPTY)
+                self.node.parm('draw_backward').set(False)
+
+                self.node.setCachedUserData('selected_points', [])
+                self.node.setCachedUserData('selected_mode', None)
+                self.node.setCachedUserData('action_payload', None)
+
+        
+        def _onNodeParmChange(self, kwargs):
+                
+                changed = bm.detectChangedParms(self.node, State.WATCH_PARMS)
+
+                # Side effects
+                if 'selection' in changed:
+                        selection = changed['selection']['value']
+                        self._updateSelection(kwargs, selection, update_parm=False)
+
+                for key in ('tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'):
+                        if key in changed:
+                                # On either transform component has changed
+                                with hou.undos.group('Transform curve'):
+                                        xform = bm.getNodeTransform(self.node)
+                                        self._transformWithPivot(kwargs, xform)
+                                break
+
+        def _updatePivotCache(self, pivot_xform=None):
+                if pivot_xform == None:
+                        pivot_xform = bm.getNodeTransform(self.node)
+
+                selected_points = self.state('selected_points')
+                select_mode = self.state('selected_mode')
+
+                cache = None
+
+                if select_mode == 'point':
+                        cache = [self.curves.position(ptnum) for ptnum in selected_points]
+                elif select_mode == 'anchor':
+                        cache = [
+                                (self.curves.handle(ptnum, HandleType.IN),
+                                self.curves.position(ptnum),
+                                self.curves.handle(ptnum, HandleType.OUT))
+                                for ptnum in selected_points]
+                elif select_mode == 'handle':
+                        cache = [self.curves.position(ptnum) for ptnum in selected_points]
+
+                self.setState('selected_cache', cache)
+                self.setState('pivot_orig_xform', pivot_xform)
+
+        def _transformWithPivot(self, kwargs, pivot_xform=None, break_handle=False):
+                if kwargs['state_parms']['pivot_mode']['value']:
+                        return
+
+                pivot_orig_xform = self.state('pivot_orig_xform')
+                xform_delta = bm.computeDeltaXform(pivot_orig_xform, pivot_xform)
+
+                points = self.state('selected_points')
+                cache = self.state('selected_cache')
+                selected_mode = self.state('selected_mode')
+
+                for (i, ptnum) in enumerate(points):
+
+                        if selected_mode == 'point':
+                                position = cache[i] * xform_delta
+                                self.curves.setPosition(ptnum, position)
+
+                        elif selected_mode == 'anchor':
+                                in_handle, position, out_handle = cache[i]
+
+                                position = position * xform_delta
+                                in_handle = in_handle.multiplyAsDir(xform_delta)
+                                out_handle = out_handle.multiplyAsDir(xform_delta)
+
+                                self.curves.setAnchorValues(ptnum, position, in_handle, out_handle)
+                        
+                        else: # selected_mode == 'handle'
+                                position = cache[i] * xform_delta
+                                if self.break_handle:
+                                        self.curves.setPosition(ptnum, position)
+                                else:
+                                        self.curves.dragPosition(ptnum, position)
+
+        def _updateSelection(self, kwargs, selection='', update_parm=True):
+                geo = self.node.geometry()
+
+                if isinstance(selection, basestring):
+                        selection = hou.Selection(geo, hou.geometryType.Points, selection)
+
+                # adjust selection
+                points = None
+                origViewerPoints = [point.number() for point in selection.points(geo)]
+                anchors = [ptnum for ptnum in origViewerPoints if PointType.isAnchor(self.curves.pointType(ptnum))]
+                
+                select_unit = kwargs['state_parms']['select_unit']['value']
+
+                viewer_points = None
+
+                select_mode = 'handle'
+                
+                if select_unit == 1: # Curve
+                        select_mode = 'anchor'
+                        viewer_points = []
+
+                        prims = set([self.curves.primnum(ptnum) for ptnum in origViewerPoints])
+
+                        for primnum in prims:
+                                viewer_points += self.curves.allPoints(primnum)
+                        
+                        points = [ptnum for ptnum in viewer_points if PointType.isAnchor(self.curves.pointType(ptnum))]
+                
+                elif len(anchors) > 0:
+                        select_mode = 'anchor'
+                        viewer_points = []
+                        points = anchors
+
+                        for anchor in anchors:
+                                inhandle = self.curves.getHandlePtnum(anchor, HandleType.IN)
+                                outhandle = self.curves.getHandlePtnum(anchor, HandleType.OUT)
+                                if inhandle != EMPTY:
+                                        viewer_points.append(inhandle)
+                                viewer_points.append(anchor)
+                                if outhandle != EMPTY:
+                                        viewer_points.append(outhandle)
+                
+                else:
+                        points = origViewerPoints
+
+                # Recreate selection if neccesary
+                if viewer_points:
+                        selection = ' '.join([str(ptnum) for ptnum in viewer_points])
+                        selection = hou.Selection(geo, hou.geometryType.Points, selection)
+
+                # Then upate
+                num_selected = len(points)
+                selectionString = selection.selectionString(
+                        geo, asterisk_to_select_all=True)
+                
+                # Should break handles on move?
+                if len(points) > 0 and len(anchors) == 0:
+                        for ptnum in sorted(points):
+                                if self.curves.pointType(ptnum) != PointType.INHANDLE:
+                                        continue
+                                anchor = self.curves.getAnchorPtnum(ptnum)
+                                outHandle = self.curves.getHandlePtnum(anchor, HandleType.OUT)
+                                if outHandle in points:
+                                        select_mode = 'point'
+                                        break
+
+                with hou.undos.group('Select points' if num_selected > 0 else 'Clear selection'):
+
+                        self.setState('selected_points', points)
+                        self.setState('selected_mode', select_mode)
+                        self.setState('cache_selection', selectionString)
+
+                        if update_parm:
+                                self.node.parm('selection').set(selectionString)
+
+                        self._alignPivot(kwargs)
+
+                        # Force update viewer
+                        if self.scene_viewer.currentGeometrySelection() != None:
+                                self.scene_viewer.setCurrentGeometrySelection(
+                                        hou.geometryType.Points, (self.node,), (selection,))
+
+        def _alignPivot(self, kwargs):
+
+                state_parms = kwargs['state_parms']
+
+                points = self.state('selected_points')
+                select_mode = self.state('selected_mode')
+                
+                visible_handle = None
+
+                num_selected = len(points)
+
+                positions = [self.curves.position(ptnum) for ptnum in points]
+
+                if num_selected != 0:
+
+                        translate = hou.Vector3()
+                        rotate = hou.Vector3()
+                        scale = hou.Vector3(1, 1, 1)
+
+                        if num_selected == 1:
+                                
+                                tangent = hou.Vector3(0, 0, 1)
+
+                                if select_mode == 'handle':
+                                        # When selecting one handle
+                                        tangent = self.curves.handle(points[0])
+
+                                elif select_mode == 'anchor':
+                                        # When selecting one anchor
+                                        anchor = points[0]
+                                        pointType = self.curves.pointType(anchor)
+                                        tangent = hou.Vector3()
+
+                                        if pointType != PointType.ANCHOR_FIRST:
+                                                tangent -= self.curves.handle(anchor, HandleType.IN)
+                                        
+                                        if pointType != PointType.ANCHOR_LAST:
+                                                tangent += self.curves.handle(anchor, HandleType.OUT)
+                                        
+                                        if tangent.isAlmostEqual(ZERO_VECTOR):
+                                                tangent = hou.Vector3(0, 0, 1)
+                                
+                                visible_handle = 'xform'
+                                translate = positions[0]
+                                rotate = bm.computeDirectionRotates(tangent.normalized())
+
+                        if num_selected > 1:
+
+                                posx = [p[0] for p in positions]
+                                posy = [p[1] for p in positions]
+                                posz = [p[2] for p in positions]
+
+                                pos_max_x = max(posx)
+                                pos_min_x = min(posx)
+                                pos_max_y = max(posy)
+                                pos_min_y = min(posy)
+                                pos_max_z = max(posz)
+                                pos_min_z = min(posz)
+
+                                scale = hou.Vector3(
+                                        abs(pos_max_x - pos_min_x),
+                                        abs(pos_max_y - pos_min_y),
+                                        abs(pos_max_z - pos_min_z),
+                                )
+                                translate = hou.Vector3(
+                                        (pos_max_x + pos_min_x) / 2,
+                                        (pos_max_y + pos_min_y) / 2,
+                                        (pos_max_z + pos_min_z) / 2,
+                                )
+
+                                if scale.length() > EPSILON and not state_parms['pivot_mode']['value']:
+                                        visible_handle = 'bbox'
+                                else:
+                                        visible_handle = 'xform'
+
+                        xform = hou.hmath.buildTransform({
+                                'translate': translate,
+                                'rotate': rotate,
+                                'scale': scale})
+                
+                        bm.setNodeTransform(self.node,
+                                translate=translate,
+                                rotate=rotate,
+                                scale=scale)
+                        
+                        self._updatePivotCache(xform)
+                
+                # Toggle handles' visibility
+                self.visible_handle = visible_handle
+                self.scene_viewer.showHandle('xform', visible_handle == 'xform')
+                self.scene_viewer.showHandle('bbox', visible_handle == 'bbox')
+
+        def _updateCursor(self, kwargs):
+
+                ui_event = kwargs['ui_event']
+                state_parms = kwargs['state_parms']
+                draw_viewport_plane =  state_parms['draw_viewport_plane']['value']
+
+                current_action = self.node.evalParm('current_action')
+                current_anchor = self.node.evalParm('current_anchor')
+                
+                plane_origin = None
+
+                if current_anchor != EMPTY and not draw_viewport_plane:
+                        plane_origin = self.curves.position(current_anchor)
+                
+                elif current_action == 'drag_point':
+                        plane_origin = self.state('action_payload')['start_position']
+
+                options = {
+                        'ui_event': ui_event,
+                        'disable_points_snapping': current_action != '',
+                        'disable_edge_snapping': current_action != '',
+                        'plane_origin': plane_origin
+                }
+                self.cursor.update(options)
+
+        def _detectAction(self, kwargs):
+                tool = kwargs['state_parms']['tool']['value']
+                device = kwargs['ui_event'].device()
+                current_anchor = self.node.parm('current_anchor').eval()
+                action = None
+                parms = {}
+
+                # Snap to anchor when selecting hard corner
+                snapped_ptnum = None
+                if self.cursor.snapped == 'point':
+                        snapped_ptnum = self.cursor.snapped_ptnum
+
+                        if not PointType.isAnchor(self.curves.pointType(snapped_ptnum)):
+                                handle = self.curves.handle(snapped_ptnum)
+                                if handle.isAlmostEqual(ZERO_VECTOR):
+                                        snapped_ptnum = self.curves.getAnchorPtnum(snapped_ptnum)
+                
+                # Temporarily switch to select tool when pressing ctrl key at the pen tool
+                if tool == ToolType.PEN and device.isCtrlKey():
+                        tool = ToolType.SELECT
+
+
+                if tool == ToolType.PEN:
+                        if current_anchor == EMPTY:
+                                if self.cursor.snapped == 'point':
+                                        point_type = self.curves.pointType(snapped_ptnum)
+
+                                        if PointType.isEnd(point_type):
+                                                action = 'extend_curve'
+                                                parms['anchor'] = snapped_ptnum
+                                                parms['backward'] = point_type == PointType.ANCHOR_FIRST
+                                        else:
+                                                action = 'drag_point'
+                                                parms['point'] = snapped_ptnum
+
+                                elif self.cursor.snapped == 'edge':
+                                        # split at edge
+                                        bezier_ptnums, t = self.curves.bezierSegmentAtEdge(
+                                                self.cursor.snapped_edge, self.cursor.position)
+
+                                        action = 'insert_anchor'
+                                        parms['bezier_ptnums'] = bezier_ptnums
+                                        parms['t'] = t
+
+                                elif self.cursor.snapped != False:
+                                        action = 'create_curve'
+
+                        else:
+                                if self.cursor.snapped == 'point':
+                                        target_pt = snapped_ptnum
+                                        target_point_type = self.curves.pointType(target_pt)
+                                        source_point_type = self.curves.pointType(current_anchor)
+
+                                        source_prim = self.curves.primnum(current_anchor)
+                                        target_prim = self.curves.primnum(target_pt)
+
+                                        is_same_prim = source_prim == target_prim
+                                        is_source_dot = self.curves.numSegments(source_prim) == 1
+
+                                        can_close = is_same_prim and (
+                                                (not is_source_dot and source_point_type != target_point_type and PointType.isEnd(target_point_type)) or is_source_dot)
+                                        can_join = not is_same_prim and PointType.isAnchor(target_point_type) and target_point_type != PointType.ANCHOR_MIDDLE
+
+                                        if can_close:
+                                                # close
+                                                action = 'close_curve'
+                                                parms['primnum'] = source_prim
+                                                parms['anchor'] = target_pt
+
+                                        elif can_join:
+                                                # join
+                                                action = 'join_curves'
+                                                parms['source_prim'] = source_prim
+                                                parms['target_prim'] = target_prim
+                                                parms['source_end'] = source_point_type
+                                                parms['target_end'] = target_point_type
+                                        
+                                        else:
+                                                action = 'add_anchor'
+
+                                elif self.cursor.snapped != False:
+                                        action = 'add_anchor'
+                
+                elif tool == ToolType.SELECT:
+                        if self.cursor.snapped == 'point':
+                                action = 'drag_point'
+                                parms['point'] = snapped_ptnum
+                
+                elif tool == ToolType.CUT:
+                        if self.cursor.snapped  == 'point':
+                                if self.curves.pointType(snapped_ptnum) == PointType.ANCHOR_MIDDLE:
+                                        action = 'cut_anchor'
+                                        parms['anchor'] = snapped_ptnum
+                        
+                        elif self.cursor.snapped == 'edge':
+                                # split at edge
+                                        bezier_ptnums, t = self.curves.bezierSegmentAtEdge(
+                                                self.cursor.snapped_edge, self.cursor.position)
+
+                                        action = 'cut_edge'
+                                        parms['bezier_ptnums'] = bezier_ptnums
+                                        parms['t'] = t
+
+
+                # Set message by capitalizing the string
+                if action:
+                                parms['message'] = ' '.join(w.capitalize() for w in action.split('_'))
+
+                                if action == 'drag_point':
+                                        parms['color'] = (0, 1, 1, 1)
+                                else:
+                                        parms['color'] = (1, 0, 1, 1)
+
+                return (action, parms)
+
+        def onEnter(self, kwargs):
+                node = kwargs['node']
+                node.setCachedUserData('viewer_state', self)
+
+                self.initialize(kwargs)
+
+                with hou.undos.disabler():
+                        self.node.parm('viewerstate_enabled').set(True)
+                
+                self._snap_mode = self.scene_viewer.snappingMode()
+                self.scene_viewer.setSnappingMode(hou.snappingMode.Point)
+
+        def onExit(self,kwargs):
+
+                self.node.setCachedUserData('viewer_state', None)
+
+                with hou.undos.disabler():
+                        self.node.parm('viewerstate_enabled').set(False)
+                        if self.node:
+                                self._abortAction()
+
+                self.scene_viewer.setSnappingMode(self._snap_mode)
+
+        def onInterrupt(self, kwargs):
+                self.showGuides(False)
+
+        def onResume(self, kwargs):
+                self.showGuides(True)
+
+        def onMousemove(self, kwargs):
+                type, parms = self._detectAction(kwargs)
+
+                if type:
+                        self.cursor_visibility = True
+                        self.cursor_text = parms['message']
+                        self.guide_color = parms['color']
+                else:
+                        self.cursor_visibility = False
+
+        def onMousedown(self, kwargs):
+                device = kwargs['ui_event'].device()
+                tool = kwargs['state_parms']['tool']['value']
+
+                action, parms = self._detectAction(kwargs)
+
+                if action:
+                        self.scene_viewer.beginStateUndo(parms['message'])
+                        self.node.parm('current_action').set('')
+
+                        ptnum = self.node.evalParm('current_anchor')
+
+                        if action == 'create_curve':
+                                ptnum = self.curves.addCurve(self.cursor.position)
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(ptnum)
+                                self.node.parm('draw_backward').set(False)
+
+                        elif action == 'add_anchor':
+                                position = self.cursor.position
+                                backward = self.node.parm('draw_backward').eval()
+                                ptnum = self.curves.addAnchor(ptnum, position, backward)
+
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(ptnum)
+
+                        elif action == 'extend_curve':
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(parms['anchor'])
+                                self.node.parm('draw_backward').set(parms['backward'])
+
+                        elif action == 'close_curve':
+                                self.curves.setClosed(parms['primnum'], True)
+
+                                anchor = parms['anchor']
+                                backward = self.node.parm('draw_backward').eval()
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(anchor)
+
+                        elif action == 'join_curves':
+                                anchor = self.curves.joinCurves(
+                                        source_prim=parms['source_prim'],
+                                        target_prim=parms['target_prim'],
+                                        source_end=parms['source_end'],
+                                        target_end=parms['target_end'])
+
+                                backward = self.node.parm('draw_backward').eval()
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(anchor)
+
+                        elif action == 'insert_anchor':
+                                anchor = self.curves.insertAnchor(
+                                        parms['bezier_ptnums'], parms['t'])
+                                self.node.parm('current_action').set('edit_anchor')
+                                self.node.parm('current_anchor').set(anchor)
+
+                        elif action == 'drag_point':
+                                self.node.parm('current_action').set('drag_point')
+
+                                ptnum = parms['point']
+                                position = self.curves.position(ptnum)
+
+                                self.setState('action_payload', {
+                                        'point': ptnum,
+                                        'start_position': position
+                                })
+                        
+                        elif action == 'cut_anchor':
+                                self.curves.cutCurveAtAnchor(parms['anchor'])
+                        
+                        elif action == 'cut_edge':
+                                self.curves.cutCurveAtEdge(parms['bezier_ptnums'], parms['t'])
+                        
+                        self._updateSelection(kwargs, '')
+
+                        if self.node.evalParm('current_action') == '':
+                                self.scene_viewer.endStateUndo()
+
+                else: # action == None
+                        
+                        if tool == ToolType.SELECT and device.isLeftButton():
+
+                                self.scene_viewer.triggerStateSelector(hou.triggerSelectorAction.Start, 'select_points')
+                                
+                                if device.isShiftKey() or device.isCtrlKey():
+                                        existing_selection = self.node.evalParm('selection')
+                                        self._updateSelection(kwargs, existing_selection)
+                                else:
+                                        self._updateSelection(kwargs, '')
+
+        def onMousedrag(self, kwargs):
+                ui_event = kwargs['ui_event']
+
+                action = self.node.evalParm('current_action')
+                anchor = self.node.evalParm('current_anchor')
+                backward = self.node.evalParm('draw_backward')
+
+                if action == 'edit_anchor':
+                        anchor_position = self.curves.position(anchor)
+                        out_handle = (self.cursor.position - anchor_position)
+
+                        self.curves.setHandle(
+                                anchor, out_handle, HandleType.IN if backward else HandleType.OUT)
+
+                        if not ui_event.device().isAltKey():
+                                self.curves.setHandle(
+                                        anchor, -out_handle, HandleType.OUT if backward else HandleType.IN)
+
+                elif action == 'drag_point':
+                        point = self.state('action_payload')['point']
+                        self.curves.dragPosition(point, self.cursor.position, break_handle=self.break_handle)
+
+        def onMouseup(self, kwargs):
+                action = self.node.evalParm('current_action')
+                anchor = self.node.evalParm('current_anchor')
+
+                if action:
+                        if action == 'edit_anchor':
+                                if self.curves.pointType(anchor) == PointType.ANCHOR_MIDDLE:
+                                        self._abortAction()
+                                        self._updateSelection(kwargs, str(anchor))
+
+                        elif action == 'drag_point':
+                                point = self.state('action_payload')['point']
+                                self._updateSelection(kwargs, str(point))
+
+                        self.node.parm('current_action').set('')
+                        self.scene_viewer.endStateUndo()
+                
+                self.setState('action_payload', None)
+
+        def onMouseEvent(self, kwargs):
+                reason = kwargs['ui_event'].reason()
+
+                self._updateCursor(kwargs)
+
+                bm.callMouseEvents(self, kwargs)
+
+                # Stop select when clicking empty space
+                if reason == hou.uiEventReason.Picked and self.scene_viewer.currentStateSelector() == 'select_points':
+                        if len(self.state('selected_points')) == 0:
+                                self._updateSelection(kwargs, '')
+                                self.scene_viewer.triggerStateSelector(hou.triggerSelectorAction.Stop, 'select_points')
+
+                return False
+
+        def onMenuAction(self, kwargs):
+                item = kwargs['menu_item']
+                state_parms = kwargs['state_parms']
+
+                tool = state_parms['tool']['value']
+
+                if item == 'interrupt_action':
+                        with hou.undos.group('End curve'):
+                                if tool == ToolType.PEN:
+                                        self._abortAction()
+                                        self._updateCursor(kwargs)
+                                elif tool == ToolType.SELECT:
+                                        self._updateSelection(kwargs, '')
+                                        self.scene_viewer.triggerStateSelector(hou.triggerSelectorAction.Stop, 'select_points')
+
+
+                elif item == 'delete':
+                        with hou.undos.group('Delete selected anchros'):
+                                points = self.state('selected_points')
+                                self.curves.deletePoints(points)
+                                self._updateSelection(kwargs, '')
+                
+                elif item == 'smooth_tangent':
+                        with hou.undos.group('Smooth tangent'):
+                                for anchor in self.state('selected_points'):
+                                        
+                                        in_handle = self.curves.handle(anchor, HandleType.IN)
+                                        out_handle = self.curves.handle(anchor, HandleType.OUT)
+
+                                        is_in_hard = in_handle.isAlmostEqual(ZERO_VECTOR)
+                                        is_out_hard = out_handle.isAlmostEqual(ZERO_VECTOR)
+
+                                        if is_in_hard and is_out_hard:
+                                                # NOTE: this solution can be dangerous.
+                                                # Using adjecent handles to compute the new tangent
+                                                p0 = self.curves.position(anchor)
+                                                pi = self.curves.position(anchor - 2)
+                                                po = self.curves.position(anchor + 2)
+
+                                                tan_dir = ((p0 - pi).normalized() + (po - p0).normalized()).normalized()
+                                                tan_length = min((pi - p0).length(), (po - p0).length()) / 2
+                                                tangent = tan_dir * tan_length
+
+                                                in_handle = -tangent
+                                                out_handle = tangent
+                                        
+                                        elif is_in_hard:
+                                                in_handle = -out_handle
+
+                                        elif is_out_hard:
+                                                out_handle = -in_handle
+                                        
+                                        else:
+                                                tan_dir = (out_handle.normalized() - in_handle.normalized()).normalized()
+                                                in_handle = -tan_dir * in_handle.length()
+                                                out_handle = tan_dir * out_handle.length()
+                                        
+                                        self.curves.setHandle(anchor, in_handle, HandleType.IN)
+                                        self.curves.setHandle(anchor, out_handle, HandleType.OUT)
+                
+                elif item == 'hard_tangent':
+                        with hou.undos.group('Hard tangent'):
+                                for anchor in self.state('selected_points'):
+                                        self.curves.setHandle(anchor, ZERO_VECTOR, HandleType.IN)
+                                        self.curves.setHandle(anchor, ZERO_VECTOR, HandleType.OUT)
+
+                elif item == 'equal_tangent':
+                        with hou.undos.group('Equal tangent'):
+                                for anchor in self.state('selected_points'):
+                                        in_handle = self.curves.handle(anchor, HandleType.IN)
+                                        out_handle = self.curves.handle(anchor, HandleType.OUT)
+
+                                        in_length = in_handle.length()
+                                        out_length = out_handle.length()
+                                        
+                                        if in_length < EPSILON:
+                                                in_length = out_length
+                                                in_handle = -out_handle
+                                        if out_length < EPSILON:
+                                                out_length = in_length
+                                                out_handle = -in_handle
+                                        
+                                        newLength = (in_length + out_length) / 2
+                                        
+                                        in_handle = in_handle.normalized() * newLength
+                                        out_handle = out_handle.normalized() * newLength
+                                        
+                                        self.curves.setHandle(anchor, in_handle, HandleType.IN)
+                                        self.curves.setHandle(anchor, out_handle, HandleType.OUT)
+                
+                elif item == 'cut_curve':
+                        with hou.undos.group('Cut curve'):
+                                if self.cursor.snapped == 'point':
+                                        self.curves.cutCurveAtAnchor(self.cursor.snapped_ptnum)
+                                        self._updateSelection(kwargs, '')
+                
+                elif item == 'reverse_curve':
+                        with hou.undos.group('Reverse curve'):
+                                
+                                points = self.state('selected_points')
+
+                                prims = [self.curves.primnum(ptnum) for ptnum in points]
+                                prims = list(set(prims))
+
+                                for primnum in prims:
+                                        self.curves.reverseCurve(primnum)
+                                
+                                self._updateSelection(kwargs, '')
+
+                elif item == 'straighten_segment':
+                        with hou.undos.group('Straighten Segment'):
+                                points = self.state('selected_points')
+
+                                for handle0 in points:
+                                        anchor0 = self.curves.getAnchorPtnum(handle0)                           
+                                        anchor1 = -1
+                                        handle1 = -1
+
+                                        if self.curves.pointType(handle0) == PointType.INHANDLE:
+                                                anchor1 = anchor0 - 3
+                                                handle1 = anchor0 - 2
+                                        else:
+                                                anchor1 = anchor + 3
+                                                handle1 = anchor + 2
+                                        
+                                        a0p = self.curves.position(anchor0)
+                                        a1p = self.curves.position(anchor1)
+                                        
+                                        h0v = self.curves.handle(handle0)
+                                        h1v = self.curves.handle(handle1)
+
+                                        segment_dir = (a1p - a0p).normalized()
+                                        anchor_dist = (a1p - a0p).length()
+
+                                        h0v = min(h0v.length(), anchor_dist) * segment_dir
+                                        h1v = min(h1v.length(), anchor_dist) * -segment_dir
+
+                                        self.curves.setHandle(handle0, h0v)
+                                        self.curves.setHandle(handle1, h1v)
+                
+                elif item == 'move_pivot':
+                        with hou.undos.group('Move pivot'):
+                                translate = hou.Vector3(self.cursor.position)
+                                scale = hou.Vector3(1, 1, 1)
+
+                                bm.setNodeTransform(self.node, translate=translate, scale=scale, update_cache=True)
+                                self._updatePivotCache()
+                
+                elif item == 'orient_pivot':
+                        with hou.undos.group('Orient pivot'):
+                                origin = hou.Vector3(hou.evalParmTuple('t'))
+                                target = self.cursor.position
+
+                                direction = (target - origin).normalized()
+
+                                rotate = bm.computeDirectionRotates(direction)
+                                scale = hou.Vector3(1, 1, 1)
+
+                                bm.setNodeTransform(self.node, rotate=rotate, scale=scale, update_cache=True)
+                                self._updatePivotCache()
+                
+                elif item == 'pen_tool':
+                        state_parms['tool']['value'] = ToolType.PEN
+                        self._onChangeTool(kwargs)
+
+                elif item == 'select_tool':
+                        state_parms['tool']['value'] = ToolType.SELECT
+                        self._onChangeTool(kwargs)
+
+                elif item == 'cut_tool':
+                        state_parms['tool']['value'] = ToolType.CUT
+                        self._onChangeTool(kwargs)
+                        
+
+        def onMenuPreOpen(self, kwargs):
+                menu_id = kwargs['menu']
+                menu_item_states = kwargs['menu_item_states']
+
+                tool = kwargs['state_parms']['tool']['value']
+
+                if menu_id == '%s_menu' % self.node.type().name():  # Root
+
+                        points = self.state('selected_points')
+                        mode_anchor = self.state('selected_mode') == 'anchor'
+                        mode_handle = self.state('selected_mode') == 'handle'
+                        points_selected = len(points) > 0
+
+                        all_middle_anchors = mode_anchor and all([self.curves.pointType(anchor) == PointType.ANCHOR_MIDDLE for anchor in points])
+                        
+                        can_end_curve = self.node.evalParm('current_anchor') != EMPTY
+
+                        one_handle_selected = mode_handle and len(points) == 1
+
+                        menu_item_states['interrupt_action']['enable'] = can_end_curve or tool == ToolType.SELECT
+                        menu_item_states['cut_curve']['enable'] = self.cursor.snapped in ('point', 'edge')
+                        menu_item_states['reverse_curve']['enable'] = points_selected
+                        menu_item_states['straighten_segment']['enable'] = mode_handle
+                        
+                        menu_item_states['delete']['enable'] = points_selected
+
+                        menu_item_states['smooth_tangent']['enable'] = all_middle_anchors
+                        menu_item_states['hard_tangent']['enable'] = mode_anchor
+                        menu_item_states['equal_tangent']['enable'] = all_middle_anchors
+
+        def onParmChangeEvent(self, kwargs):
+                parm_name = kwargs["parm_name"]
+                parm_value = kwargs["parm_value"]
+
+                if parm_name == 'tool':
+                        self._onChangeTool(kwargs)
+                
+                elif parm_name == 'pivot_mode':
+                        if parm_value:
+                                self._updatePivotCache()
+        
+        def onKeyEvent(self, kwargs):
+                state_parms = kwargs['state_parms']
+                device = kwargs['ui_event'].device()
+
+                try:
+                        if hou.hotkeys.isKeyMatch(device.keyString(), 'h.pane.gview.handle.edit.pivot_mode'):
+                                value = state_parms['pivot_mode']['value']
+                                state_parms['pivot_mode']['value'] = 1 - value
+                                if value:
+                                        self._updatePivotCache()
+                                else:
+                                        if self.visible_handle == 'bbox':
+                                                self.visible_handle = 'xform'
+                                                self.scene_viewer.showHandle('xform', True)
+                                                self.scene_viewer.showHandle('bbox', False)
+                                return True
+                except ValueError:
+                        pass
+                
+                return False
+
+        def onKeyTransitEvent(self, kwargs):
+                device = kwargs['ui_event'].device()
+                self.break_handle = device.isAltKey()
+                
+                return False
+
+        def onHandleToState(self, kwargs):
+                handle = kwargs["handle"]
+                parms = kwargs["parms"]
+                ui_event = kwargs["ui_event"]
+                reason = ui_event.reason()
+
+                if handle in ('xform', 'bbox'):
+
+                        components = bm.getHandleTRS(parms)
+                        handle_xform = hou.hmath.buildTransform(components)
+
+                        translate = components['translate']
+                        rotate = components['rotate']
+                        scale = components['scale']
+
+                        if handle == 'bbox':
+                                # Not to hide the handle at the inappropreate timing
+                                parms['onoff'] = self.visible_handle == 'bbox'
+
+                        if reason == hou.uiEventReason.Start:
+                                self.scene_viewer.beginStateUndo('Transform elements')
+                                self._updatePivotCache(handle_xform)
+                                self.showGuides(False)
+
+                        bm.setNodeTransform(self.node,
+                                translate=translate,
+                                rotate=rotate,
+                                scale=scale)
+
+                        if reason == hou.uiEventReason.Active:
+                                self._transformWithPivot(kwargs, handle_xform)
+
+                        if reason == hou.uiEventReason.Changed:
+                                self._updatePivotCache(handle_xform)
+                                self.showGuides(True)
+                                self.scene_viewer.endStateUndo()
+
+        def onStateToHandle(self, kwargs):
+                handle = kwargs["handle"]
+
+                self.initialize(kwargs)
+
+                if handle in ('xform', 'bbox'):
+                        parms = kwargs['parms']
+                        
+                        translate = self.node.evalParmTuple('t')
+                        rotate = self.node.evalParmTuple('r')
+                        scale = self.node.evalParmTuple('s')
+
+                        bm.setHandleTransform(parms, translate=translate, rotate=rotate, scale=scale)
+                        
+                        if handle == 'bbox':
+                                parms['onoff'] = 1
+                                
+                
+                elif handle == 'do_not_hide':
+                        self._onNodeParmChange(kwargs)
+        
+        def onDraw(self, kwargs):
+                draw_handle = kwargs['draw_handle']
+                
+                cursor_position = self.cursor.position
+                projected_position = self.cursor.projected_position
+                handle_size = self.node.parm('handle_size').eval()
+
+                if self.cursor_visibility:
+                        
+                        # bm.Cursor
+                        cursor_xform = hou.hmath.buildTransform({
+                                'translate': cursor_position,
+                                'scale': (handle_size, handle_size, handle_size)
+                        })                        
+                        xform = self.cursor.computeDrawableXform(cursor_xform)
+                        self.guide_cursor.setTransform(xform)
+                        self.guide_cursor.draw(draw_handle, {'color1': self.guide_color})
+
+                        # Text
+                        if self.cursor_text:
+                                params = { 
+                                        'text': '<font color="%s">%s</font>' % (bm.getHexColor(self.guide_color), self.cursor_text),
+                                        'translate' : self.cursor.mouse_screen }
+                                self.guide_text.draw(draw_handle, params)
+
+                        # Line
+                        self.guide_line_geo.point(0).setPosition(cursor_position)
+                        self.guide_line_geo.point(1).setPosition(projected_position)
+                        self.guide_line_geo.incrementAllDataIds()
+                        self.guide_line.draw(draw_handle, {'color1': self.guide_color})
+                        
+                        # Extend
+                        current_anchor = self.node.evalParm('current_anchor')
+
+                        if current_anchor != EMPTY and self.cursor_text != 'Drag Point':
+                                backward = self.node.parm('draw_backward').eval()
+
+                                last_anchor = self.curves.position(current_anchor)
+                                last_handle_type = HandleType.IN if backward else HandleType.OUT
+                                last_handle = last_anchor + self.curves.handle(current_anchor, last_handle_type)
+
+
+                                A = last_anchor
+                                B = last_handle
+                                D = self.cursor.position                        
+                                
+
+                                points = self.guide_extend_geo.points()
+                                num_points = len(points)
+
+                                for i in xrange(num_points):
+                                        t = i / float(num_points - 1)
+                                        P = A * (1-t)**3 + 3 * B * (1-t)**2 * t + 3 * D * (1-t) * t**2 + D * t**3;
+                                        points[i].setPosition(P)
+
+                                # p0, p1, p2, p3 = self.guide_extend_geo.points()
+
+                                # p0.setPosition(last_anchor)
+                                # p1.setPosition(last_handle)
+                                # p2.setPosition(self.cursor.position)
+                                # p3.setPosition(self.cursor.position)
+
+                                self.guide_extend_geo.incrementAllDataIds()
+                                self.guide_extend.draw(draw_handle, {'color1': self.guide_color})
+
+        def onSelection(self, kwargs):
+                sel = kwargs['selection']
+                name = kwargs['name']
+
+                if name == 'select_points' and len(sel.selections()) > 0:
+                        selection = sel.selections()[0]
+                        self._updateSelection(kwargs, selection)
+                        return True
+
+                return False
+
+# -------------------------------------------------------
+# Menu
+
+def addMenuAction(menu, context, name, description, assignment):
+        hotkey = context + '.' + name
+        hou.hotkeys.addCommand(hotkey, description, description, assignment)
+        menu.addActionItem(name, description, hotkey)
+
+
+def createMenu():
+        nodetype = kwargs['type']
+
+        type_description = nodetype.description()
+
+        context = "h.pane.gview.state.sop.%s" % nodetype.name().split('::')[1]
+        hou.hotkeys.addContext(
+                context, type_description,
+                type_description
+        )
+
+        # Build the menu
+        menu = hou.ViewerStateMenu('%s_menu' % nodetype.name(), type_description)
+        
+        addMenuAction(menu, context, 'interrupt_action', 'End Curve', ("Esc", 'Enter'))
+
+        menu.addSeparator()
+
+        addMenuAction(menu, context, 'delete', 'Delete Selected', ('Backspace',))
+
+        menu.addActionItem('smooth_tangent', 'Smooth Tangent')
+        menu.addActionItem('hard_tangent', 'Hard Tangent')
+        menu.addActionItem('equal_tangent', 'Equal Tangent') 
+        menu.addActionItem('cut_curve', 'Cut Curve at Here')
+        menu.addActionItem('reverse_curve', 'Reverse Curve')
+        menu.addActionItem('straighten_segment', 'Straighten Segment')
+        menu.addActionItem('move_pivot', 'Move Pivot to Here')
+        menu.addActionItem('orient_pivot', 'Orient Pivot to Here')
+
+        menu.addSeparator()
+        
+        # Tool Switcher
+        addMenuAction(menu, context, 'pen_tool', 'Switch to Pen Tool', ('P',))
+        addMenuAction(menu, context, 'select_tool', 'Switch to Select Tool', ('A',))
+        addMenuAction(menu, context, 'cut_tool', 'Switch to Cut Tool', ('Shift+C',))
+
+        return menu
+        
+# -------------------------------------------------------
+# Initialize 
+
+def createViewerStateTemplate():
+        """ Mandatory entry point to create and return the viewer state 
+        template to register. """
+
+        # Grab a reference to the asset's node type
+        nodetype = kwargs['type']
+
+        state_typename = nodetype.definition().sections()["DefaultState"].contents()
+        state_label = nodetype.description() 
+        state_cat = nodetype.category()
+
+        template = hou.ViewerStateTemplate(state_typename, state_label, state_cat)
+        template.bindFactory(State)
+        template.bindIcon(nodetype.icon())
+
+        template.bindGeometrySelector(
+                name='select_points',
+                ordered=True,
+                prompt='Select Points',
+                geometry_types=(hou.geometryType.Points,),
+                allow_other_sops=False,
+                quick_select=True,
+                auto_start=False,
+                secure_selection=hou.secureSelectionOption.Off)
+        
+        template.bindParameter(
+                hou.parmTemplateType.Menu,
+                name="tool",
+                label="Tool",
+                menu_items=(
+                        ('pen', 'Pen', 'SOP_drawcurve'),
+                        ('select', 'Select', 'SOP_edit'),
+                        ('cut', 'Cut', 'SOP_polycut')),
+                menu_as_button_strip=True)
+                
+        template.bindParameter(hou.parmTemplateType.Toggle,
+                name="pivot_mode",
+                label='Pivot Mode',
+                default_value=False)
+
+        template.bindParameter(hou.parmTemplateType.Toggle,
+                name="draw_viewport_plane",
+                label='Draw on Viewport Plane')
+        
+        template.bindParameter(
+                hou.parmTemplateType.Menu,
+                name="select_unit",
+                label="Select Mode",
+                menu_items=(
+                        ('point', 'Point'),
+                        ('curve', 'Curve')),
+                menu_as_button_strip=True)
+
+        template.bindHandle('xform', 'xform',
+                handle_parms=[
+                        'tx', 'ty', 'tz',
+                        'rx', 'ry', 'rz',
+                        'sx', 'sy', 'sz'
+                        ])      
+        template.bindHandle('boundingbox', 'bbox')
+        template.bindHandle('domain', 'do_not_hide')
+
+        template.bindMenu(createMenu())
+
+
+        return template
