@@ -32,6 +32,12 @@ Manually assigns attribute values to specific elements.
 
 ![](./previews/attrib_manual.gif)
 
+### Round Corners SOP
+
+Makes all corners of polyline rounded.
+
+![](./previews/round_corners.gif)
+
 ### Attribute Normalize SOP
 
 Normalizes an attribute of input between specific range automatically.
