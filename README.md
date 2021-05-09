@@ -38,6 +38,12 @@ Makes all corners of polyline rounded.
 
 ![](./previews/round_corners.gif)
 
+### Dashed Line
+
+Converts a polyline to dashed stroke by specifying SVG's stroke-dasharray
+
+![](./previews/dashed_line.jpg)
+
 ### Attribute Normalize SOP
 
 Normalizes an attribute of input between specific range automatically.
