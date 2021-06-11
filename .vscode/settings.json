@@ -1,6 +1,6 @@
 {
 	"[python]": {
-		"editor.tabSize": 2,
+		"editor.tabSize": 4,
 		"editor.useTabStops": true,
 		"editor.formatOnSave": true,
 		"editor.formatOnPaste": true,
