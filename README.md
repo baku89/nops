@@ -20,6 +20,18 @@ Draw bezier curves in a conventional way of other standard grahic tools.
 Similar to Draw Bezier SOP but only can draw polylines. Instead, the SOP can draw over and modify the input polylines and also allows multiple vertices per point. (This is especially buggy)
 -->
 
+### Parse SVG SOP
+
+You can copy & paste a svg code from Adobe Illustrator
+
+![](./previews/parse_svg.gif)
+
+### Round Corners SOP
+
+Makes all corners of polyline rounded.
+
+![](./previews/round_corners.gif)
+
 ### Transform Packed SOP
 
 Edit transformation of series of packed geometries at once.
@@ -31,12 +43,6 @@ Edit transformation of series of packed geometries at once.
 Manually assigns attribute values to specific elements.
 
 ![](./previews/attrib_manual.gif)
-
-### Round Corners SOP
-
-Makes all corners of polyline rounded.
-
-![](./previews/round_corners.gif)
 
 ### Dashed Line
 
