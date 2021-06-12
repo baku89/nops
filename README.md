@@ -68,7 +68,7 @@ Creates a detail attribute which turns 1 on every frame you press the Bang butto
 
 ## Quick Installation
 
-1. Download the latest version from [this repository](https://github.com/baku89/baku-hda/archive/master.zip).
+1. Download the latest version from [this repository](https://github.com/baku89/baku-hda/archive/main.zip).
 1. Append the path to the download folder to the \$HOUDINI_PATH by either way:
 
    - Append `HOUDINI_PATH = "$HOUDINI_PATH;PATH_TO_THE_DIR;&"` to your houdini.env. (On Linux and macOS, use `:` instead of `;`)
