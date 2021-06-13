@@ -22,9 +22,24 @@ Similar to Draw Bezier SOP but only can draw polylines. Instead, the SOP can dra
 
 ### Parse SVG SOP
 
-You can copy & paste a svg code from Adobe Illustrator
+You can copy & paste a svg code from Adobe Illustrator while preserving the style attributes.
+Paths with neither stroke nor fill will be ignored.
 
 ![](./previews/parse_svg.gif)
+
+#### Limitations
+
+The SOP works fine for SVG code generated and stored into the clipboard when you copy items in Illustrator. Paths with neither fill and stroke will be ignored. Some of path commands, styles, and symbols are not yet supported. For example:
+
+- `A` (arc) command in `d` attributes of `<path>` tag
+- Symbols definition in `<def>`
+- Inline styles in path (e.g. `fill` `stroke` `style` attributes in path tags)
+
+### Wrap SVG SOP
+
+Parse SOP with UV-based projection feature onto the surface. It would be useful in the case you want to add some details to a model. Please keep in mind that paths crossing over UV islands will be broken.
+
+![](./previews/wrap_svg.gif)
 
 ### Round Corners SOP
 

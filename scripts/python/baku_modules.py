@@ -10,6 +10,13 @@ AXIS_X = hou.Vector3(1, 0, 0)
 AXIS_Y = hou.Vector3(0, 1, 0)
 AXIS_Z = hou.Vector3(0, 0, 1)
 
+def setClipboardText(text):
+	import PySide2.QtGui as qtg
+	qtg.QClipboard().setText(text)
+
+def getClipboardText():
+	import PySide2.QtGui as qtg
+	return qtg.QClipboard().text()
 
 def updateParmCache(node, parms):
     if not isinstance(parms, tuple):
